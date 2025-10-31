@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 load_dotenv()
 gemini_api_key = os.getenv('GOOGLE_API_KEY')
 
+# This is how we create the system prompt for the agent to use. Since we can manipulate the messages that are passed back to the LLM,
+# we are initalizing the 'memory' with this dialogue history so it continues immediately with the task.
 
 def build_history() -> List[ModelMessage]:
     return [
@@ -34,6 +36,9 @@ def build_history() -> List[ModelMessage]:
     ]
 
 
+# The agent usually returns in the dialogue the tool call made as well as what might've been seen on the page afterwards.
+# The page summary is trivial in most cases after we have taken another step and just makes the message history much longer and require many more tokens to continue,
+# so we can just edit the message to say this instead and just have it reread the page if the message we truncated was important
 def filter_responses(messages: list[ModelMessage]) -> list[ModelMessage]:
     tool_returns = [
         part
@@ -52,14 +57,15 @@ def filter_responses(messages: list[ModelMessage]) -> list[ModelMessage]:
     return messages
 
 
+# Intializing the agent with the latest flash model and providing it the MCP server
 async def main():
     provider = GoogleProvider(api_key=gemini_api_key)
-    model = GoogleModel("gemini-flash-lite-latest", provider=provider)
+    model = GoogleModel("gemini-flash-latest", provider=provider)
     settings = GoogleModelSettings()
 
     server = MCPServerStreamableHTTP("http://localhost:8000/mcp")
 
-    request = "find me a flight to detroit in the next week that is under $1000. Use google flights, and swap to any other one you want if you can't find one."
+    request = "find me a roundtrip flight to detroit under $500 for next week on google flights"
 
     agent = Agent(
         model=model,
